@@ -100,8 +100,9 @@ function draw(){
   ctx.font='800 12px '+FONT;
   for(const o of [...bs].sort((a,b)=>b.hl-a.hl)){const lab=label(o.p),tw=ctx.measureText(lab).width,lw=tw+14,lh=21,x=o.x,y=o.y,r=o.r;
     const cands=[[x-lw/2,y+r+6],[x-lw/2,y-r-6-lh],[x+r+6,y-lh/2],[x-r-6-lw,y-lh/2]];for(let k=1;k<=4;k++)cands.push([x-lw/2,y+r+6+k*(lh+3)]);
+    for(const c of cands){c[0]=Math.min(Math.max(c[0],4),W-lw-4);c[1]=Math.min(Math.max(c[1],4),H-lh-4)}/* 画面のはしからはみ出さない */
     let pick=cands[0];
-    for(const [lx,ly] of cands){const b=[lx-2,ly-2,lx+lw+2,ly+lh+2];if(b[0]>=0&&b[2]<=W&&b[1]>=0&&b[3]<=H&&!bs.some(q=>q!==o&&hit(b,q.box))&&!placed.some(q=>hit(b,q))){pick=[lx,ly];break}}
+    for(const [lx,ly] of cands){const b=[lx-2,ly-2,lx+lw+2,ly+lh+2];if(!bs.some(q=>q!==o&&hit(b,q.box))&&!placed.some(q=>hit(b,q))){pick=[lx,ly];break}}
     o.lab=lab;o.lb=[pick[0],pick[1],pick[0]+lw,pick[1]+lh];placed.push(o.lb)}
   pinPos=new Map();
   for(const o of [...bs].sort((a,b)=>a.hl-b.hl)){const {p,t,x,y,r,hl}=o;pinPos.set(p.id,o);
