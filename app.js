@@ -171,11 +171,14 @@ $('#f-save').onclick=()=>{const x=num($('#f-x').value),y=num($('#f-y').value),z=
   const pin={id:editingId||('p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),type:form.type,dim:form.dim,x,y,z,
     name:$('#f-name').value.trim(),kana:$('#f-kana').value.trim(),memo:$('#f-memo').value.trim(),created:Date.now()};
   if(typeOf(form.type).b)pin.size=form.size;
+  const before=new Map(data.pins.map(q=>[q.id,q.link||null]));
   const newLink=form.type==='gate'?(formLink||null):null;pin.link=newLink;
   for(const q of data.pins){if(q.link===pin.id&&q.id!==newLink)q.link=null}
   if(newLink){const q=data.pins.find(q=>q.id===newLink);if(q){if(q.link&&q.link!==pin.id){const o=data.pins.find(o=>o.id===q.link);if(o)o.link=null}q.link=pin.id}}
-  if(editingId){const i=data.pins.findIndex(p=>p.id===editingId);if(i>=0){pin.created=data.pins[i].created;data.pins[i]=pin}}else data.pins.push(pin);
-  save();closeSheets();if(pin.dim!==dim)setDim(pin.dim);centerOn(pin)};
+  const i=editingId?data.pins.findIndex(p=>p.id===editingId):-1;if(i>=0){pin.created=data.pins[i].created;data.pins[i]=pin}else data.pins.push(pin);
+  const now=Date.now();pin.updatedAt=now;
+  for(const q of data.pins){if(q.id!==pin.id&&before.get(q.id)!==(q.link||null)){q.updatedAt=now;queuePin(q)}}
+  queuePin(pin);save();closeSheets();if(pin.dim!==dim)setDim(pin.dim);centerOn(pin)};
 $('#btn-add').onclick=()=>openForm(null);
 
 /* ---------- detail ---------- */
@@ -193,7 +196,7 @@ function openDetail(p){detailId=p.id;disarm();const t=typeOf(p.type);const n=p.n
   openSheet('#sheet-detail')}
 $('#d-edit').onclick=()=>{const p=data.pins.find(p=>p.id===detailId);if(p)openForm(p)};
 $('#d-del').onclick=()=>{const b=$('#d-del');if(!armed){armed=true;b.classList.add('armed');b.textContent='ほんとうにけす？';return}
-  data.pins=data.pins.filter(p=>p.id!==detailId);data.pins.forEach(p=>{if(p.link===detailId)p.link=null});if(highlight===detailId)highlight=null;save();closeSheets();req()};
+  const now=Date.now();data.pins=data.pins.filter(p=>p.id!==detailId);data.pins.forEach(p=>{if(p.link===detailId){p.link=null;p.updatedAt=now;queuePin(p)}});queuePinDel(detailId,now);if(highlight===detailId)highlight=null;save();closeSheets();req()};
 
 /* ---------- list ---------- */
 let listDim='over';
@@ -209,15 +212,95 @@ const PALETTE=['#ef5350','#ab47bc','#42a5f5','#26c6da','#66bb6a','#ffca28','#ff7
 function renderCustom(){$('#c-list').innerHTML=data.custom.map(t=>`<div class="ctype"><span>${esc(t.e)} ${esc(t.n)}${t.k?'（'+esc(t.k)+'）':''}</span><button class="smallbtn" data-del="${esc(t.id)}">けす</button></div>`).join('')}
 $('#c-add').onclick=()=>{const e=$('#c-emoji').value.trim()||'📍',n=$('#c-name').value.trim(),k=$('#c-kana').value.trim();
   if(!n){$('#c-err').textContent='なまえを入れてね';return}
-  data.custom.push({id:'c'+Date.now().toString(36),e,n,k,d:'both',c:PALETTE[data.custom.length%PALETTE.length]});save();
+  const nt={id:'c'+Date.now().toString(36),e,n,k,d:'both',c:PALETTE[data.custom.length%PALETTE.length],updatedAt:Date.now()};data.custom.push(nt);queueType(nt);save();
   $('#c-emoji').value=$('#c-name').value=$('#c-kana').value='';$('#c-err').textContent=`「${n}」をふやしたよ`;renderCustom()};
-$('#c-list').onclick=e=>{const b=e.target.closest('[data-del]');if(!b)return;data.custom=data.custom.filter(t=>t.id!==b.dataset.del);save();renderCustom();req()};
+$('#c-list').onclick=e=>{const b=e.target.closest('[data-del]');if(!b)return;data.custom=data.custom.filter(t=>t.id!==b.dataset.del);queueTypeDel(b.dataset.del,Date.now());save();renderCustom();req()};
 $('#b-export').onclick=async()=>{const t=JSON.stringify({app:'bouken-map',v:1,pins:data.pins,custom:data.custom});$('#b-text').value=t;
   try{await navigator.clipboard.writeText(t);$('#b-msg').textContent='コピーしたよ。メモアプリなどにはりつけてね'}catch(e){$('#b-text').select();$('#b-msg').textContent='上の文字をぜんぶえらんでコピーしてね'}};
 $('#b-import').onclick=()=>{try{const p=JSON.parse($('#b-text').value);if(!p||!Array.isArray(p.pins))throw 0;
-  data={pins:p.pins,custom:Array.isArray(p.custom)?p.custom:[]};save();views.over.fit=views.nether.fit=false;views[dim].fit=true;fitAll();renderCustom();$('#b-msg').textContent=`ピンを${data.pins.length}こ よみこんだよ`}
+  const inPins=p.pins,inCustom=Array.isArray(p.custom)?p.custom:[];
+  if(cfg){/* つないでいるときは けさずに たす（新しいほうをのこす） */
+    const ts=x=>x.updatedAt||x.created||0;
+    const merge=(arr,items)=>{for(const it of items){if(!it||!it.id)continue;const i=arr.findIndex(x=>x.id===it.id);if(i<0)arr.push(it);else if(ts(arr[i])<=ts(it))arr[i]=it}};
+    merge(data.custom,inCustom);merge(data.pins,inPins);inCustom.forEach(t=>t&&t.id&&queueType(t));inPins.forEach(q=>q&&q.id&&queuePin(q))}
+  else data={pins:inPins,custom:inCustom};
+  save();views.over.fit=views.nether.fit=false;views[dim].fit=true;fitAll();renderCustom();$('#b-msg').textContent=cfg?`ピンを${inPins.length}こ よみこんで、スプレッドシートにおくるよ`:`ピンを${data.pins.length}こ よみこんだよ`}
   catch(e){$('#b-msg').textContent='よみこめなかったよ。かきだした文字をそのまま、はりつけてね'}};
-$('#btn-set').onclick=()=>{renderCustom();$('#c-err').textContent='';$('#b-msg').textContent='';openSheet('#sheet-set')};
+$('#btn-set').onclick=()=>{renderCustom();renderSync();$('#s-msg').textContent='';$('#c-err').textContent='';$('#b-msg').textContent='';openSheet('#sheet-set')};
+
+/* ---------- sync（Google スプレッドシート） ----------
+   ローカル優先：localStorage ですぐ表示 → 裏でシートとやりとり。
+   変更は outbox（id ごとに最新の1件）にためて送る。失敗したら残して、あとでまとめて再送。
+   シートからの返事＝正。そこへ まだ送れていない outbox の変更を上にかさねる。 */
+const SYNC_KEY='bouken-map-sync',OUT_KEY='bouken-map-outbox';
+const load=k=>{try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}};
+const store=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let cfg=load(SYNC_KEY);if(!cfg||!cfg.url||!cfg.key)cfg=null;
+let outbox=(cfg&&load(OUT_KEY))||{};
+let syncing=false,again=false,syncTimer=0;
+const pending=()=>Object.keys(outbox).length;
+const STATUS={ok:'☁️ ほぞんずみ',send:'⏳ おくっています',load:'⏳ よみこみちゅう',off:'⚠️ つながっていません',key:'🔑 あいことばが ちがうよ',err:'⚠️ うまくいかなかったよ'};
+function setSync(s){const b=$('#sync');b.hidden=!cfg;if(!cfg)return;const n=pending();b.dataset.state=s;b.textContent=STATUS[s]+(s!=='ok'&&s!=='send'&&n?`（${n}こ まだ）`:'')}
+const pinOut=p=>({id:p.id,type:p.type,dim:p.dim,x:p.x,y:p.y==null?null:p.y,z:p.z,name:p.name||'',kana:p.kana||'',memo:p.memo||'',size:p.size||'',link:p.link||'',created:p.created||0,updatedAt:p.updatedAt||p.created||0});
+const typeOut=t=>({id:t.id,emoji:t.e||'',name:t.n||'',kana:t.k||'',dim:t.d||'both',color:t.c||'',isBiome:!!t.b,updatedAt:t.updatedAt||0});
+function pinIn(r,ts){const t=ts.find(t=>t.id===r.type)||ts.find(t=>t.n===r.type);
+  const p={id:String(r.id),type:t?t.id:String(r.type||'other'),dim:r.dim==='nether'?'nether':'over',x:r.x,y:r.y==null?null:r.y,z:r.z,
+    name:r.name||'',kana:r.kana||'',memo:r.memo||'',link:r.link||null,created:r.created||0,updatedAt:r.updatedAt||0};
+  if(r.size)p.size=r.size;return p}
+const typeIn=r=>({id:String(r.id),e:r.emoji||'📍',n:r.name||'',k:r.kana||'',d:r.dim==='over'||r.dim==='nether'?r.dim:'both',c:r.color||'#90a4ae',b:!!r.isBiome,updatedAt:r.updatedAt||0});
+function queue(k,op){if(!cfg)return;outbox[k]=op;store(OUT_KEY,outbox);setSync('send');clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,400)}
+function queuePin(p){queue('pin:'+p.id,{op:'upsertPin',pin:pinOut(p)})}
+function queuePinDel(id,ts){queue('pin:'+id,{op:'deletePin',id,updatedAt:ts})}
+function queueType(t){queue('type:'+t.id,{op:'upsertType',type:typeOut(t)})}
+function queueTypeDel(id,ts){queue('type:'+id,{op:'deleteType',id,updatedAt:ts})}
+async function callApi(c,ops){const r=await fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:c.key,ops}),cache:'no-store',redirect:'follow'});
+  if(!r.ok)throw new Error('http '+r.status);return r.json()}
+async function syncNow(){if(!cfg)return;if(syncing){again=true;return}clearTimeout(syncTimer);syncing=true;
+  const c=cfg,sent=Object.assign({},outbox),ops=Object.values(sent);
+  if(ops.length)setSync('send');
+  try{const j=await callApi(c,ops);if(c!==cfg)return;
+    if(!j||!j.ok){setSync(j&&(j.error==='bad-key'||j.error==='no-passphrase')?'key':'err');return}
+    for(const k in sent)if(outbox[k]===sent[k])delete outbox[k];store(OUT_KEY,outbox);
+    applyRemote(j);setSync(pending()?'send':'ok')}
+  catch(e){if(c===cfg)setSync('off')}
+  finally{syncing=false;if(again&&cfg){again=false;syncTimer=setTimeout(syncNow,300)}}}
+function applyRemote(j){const ops=Object.values(outbox);
+  const custom=(j.types||[]).map(typeIn);
+  for(const o of ops){if(o.op==='upsertType'){const t=typeIn(o.type),i=custom.findIndex(x=>x.id===t.id);if(i>=0)custom[i]=t;else custom.push(t)}
+    else if(o.op==='deleteType'){const i=custom.findIndex(x=>x.id===o.id);if(i>=0)custom.splice(i,1)}}
+  const ts=DEFAULT_TYPES.concat(custom),pins=(j.pins||[]).map(r=>pinIn(r,ts));
+  for(const o of ops){if(o.op==='upsertPin'){const p=pinIn(o.pin,ts),i=pins.findIndex(x=>x.id===p.id);if(i>=0)pins[i]=p;else pins.push(p)}
+    else if(o.op==='deletePin'){const i=pins.findIndex(x=>x.id===o.id);if(i>=0)pins.splice(i,1)}}
+  const next={pins,custom};if(JSON.stringify(next)===JSON.stringify(data))return;
+  const had=d=>data.pins.some(p=>p.dim===d),was={over:had('over'),nether:had('nether')};
+  data=next;save();
+  for(const d of ['over','nether'])if(!was[d]&&had(d)){if(d===dim)fitAll();else views[d].fit=false}
+  req();if($('#sheet-list').classList.contains('open'))renderList();if($('#sheet-set').classList.contains('open'))renderCustom()}
+let discArmed=false;
+function renderSync(){$('#s-off').hidden=!!cfg;$('#s-on').hidden=!cfg;discArmed=false;$('#s-disconnect').textContent='つなぐのをやめる';
+  $('#b-hint').textContent=cfg?'スプレッドシートにも ほぞんされているよ。「よみこむ」は いまのちずに たすよ（けさないよ）。'
+    :'いまはこの端末の中だけにほぞんされるよ。「かきだす」で出た文字をメモアプリなどにとっておけば、べつの端末で「よみこむ」とおなじちずになるよ。'}
+$('#s-connect').onclick=async()=>{const url=$('#s-url').value.trim(),key=$('#s-key').value.trim(),m=$('#s-msg');
+  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){m.textContent='Apps Script の URL（https://script.google.com/ ではじまる）を入れてね';return}
+  if(!key){m.textContent='合言葉（あいことば）を入れてね';return}
+  m.textContent='⏳ たしかめています…';$('#s-connect').disabled=true;
+  try{const j=await callApi({url,key},[]);
+    if(!j||!j.ok){m.textContent=j&&j.error==='bad-key'?'合言葉（あいことば）が ちがうよ':j&&j.error==='no-passphrase'?'スクリプト プロパティに PASSPHRASE が まだないよ':'うまくいかなかったよ。もういちど やってみてね';return}
+    cfg={url,key};store(SYNC_KEY,cfg);
+    /* この端末のピンもぜんぶ送る（シート側が新しければ、シートのほうがのこる） */
+    outbox={};data.custom.forEach(t=>{outbox['type:'+t.id]={op:'upsertType',type:typeOut(t)}});data.pins.forEach(p=>{outbox['pin:'+p.id]={op:'upsertPin',pin:pinOut(p)}});store(OUT_KEY,outbox);
+    $('#s-url').value=$('#s-key').value='';renderSync();m.textContent='つながったよ！';setSync('send');syncNow()}
+  catch(e){m.textContent='つながらなかったよ。URL と、デプロイの「アクセスできるユーザー：全員」を たしかめてね'}
+  finally{$('#s-connect').disabled=false}};
+$('#s-now').onclick=()=>{$('#s-msg').textContent='';syncNow()};
+$('#s-disconnect').onclick=()=>{const n=pending();
+  if(n&&!discArmed){discArmed=true;$('#s-disconnect').textContent='ほんとうにやめる？';$('#s-msg').textContent=`まだ おくれていない へんこうが ${n}こ あるよ。やめると おくられないよ`;return}
+  cfg=null;outbox={};store(SYNC_KEY,null);store(OUT_KEY,null);setSync('');renderSync();$('#s-msg').textContent='つなぐのをやめたよ。ちずは この端末に のこっているよ'};
+$('#sync').onclick=()=>syncNow();
+if(cfg){setSync(pending()?'send':'load');syncNow()}
+setInterval(()=>{if(cfg&&!document.hidden)syncNow()},60000);
+document.addEventListener('visibilitychange',()=>{if(cfg&&!document.hidden)syncNow()});
+window.addEventListener('online',()=>{if(cfg)syncNow()});
 
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(req);
 window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').addEventListener&&matchMedia('(prefers-color-scheme: dark)').addEventListener('change',req);

@@ -27,6 +27,7 @@
     <button id="zfit" aria-label="ぜんぶ見る">⤢</button>
   </div>
   <div class="readout" id="readout"></div>
+  <button class="syncpill" id="sync" hidden aria-label="スプレッドシートとのつながり"></button>
 </div>
 
 <div class="bar">
@@ -136,8 +137,32 @@
   <div id="c-list"></div>
 
   <section class="block">
+    <span class="flabel">☁️ スプレッドシートとつなぐ</span>
+    <div id="s-off">
+      <div class="hint" style="margin-bottom:8px">つなぐと、iPhoneとiPadで おなじちずが 見られるよ。</div>
+      <div class="field">
+        <label for="s-url">Apps Script の URL</label>
+        <input type="url" id="s-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="s-key">合言葉（あいことば）</label>
+        <input type="password" id="s-key" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="actions"><button class="btn primary" id="s-connect">つなぐ</button></div>
+    </div>
+    <div id="s-on" hidden>
+      <div class="hint" style="margin-bottom:8px">スプレッドシートと つながっているよ。ピンをたてると じどうで おくられるよ。</div>
+      <div class="actions">
+        <button class="btn" id="s-now">いますぐ おくる</button>
+        <button class="btn danger" id="s-disconnect">つなぐのをやめる</button>
+      </div>
+    </div>
+    <div class="err" id="s-msg"></div>
+  </section>
+
+  <section class="block">
     <span class="flabel">バックアップ</span>
-    <div class="hint" style="margin-bottom:8px">いまはこの端末の中だけにほぞんされるよ。「かきだす」で出た文字をメモアプリなどにとっておけば、べつの端末で「よみこむ」とおなじちずになるよ。</div>
+    <div class="hint" style="margin-bottom:8px" id="b-hint">いまはこの端末の中だけにほぞんされるよ。「かきだす」で出た文字をメモアプリなどにとっておけば、べつの端末で「よみこむ」とおなじちずになるよ。</div>
     <textarea id="b-text" placeholder="ここにバックアップの文字が出るよ"></textarea>
     <div class="actions">
       <button class="btn" id="b-export">かきだす</button>

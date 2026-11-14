@@ -48,6 +48,9 @@ body[data-dim="nether"] .seg button.on{color:var(--danger)}
 .zoom button{width:44px;height:44px;border-radius:10px;border:2px solid var(--line);border-bottom-width:4px;background:var(--surface);font-size:1.3rem;font-weight:800;display:grid;place-items:center;line-height:1}
 .zoom button:active{border-bottom-width:2px;transform:translateY(2px)}
 .readout{position:absolute;left:10px;bottom:10px;background:var(--label-bg);color:var(--label-ink);border-radius:8px;padding:4px 9px;font-size:.78rem;font-weight:700;pointer-events:none}
+.syncpill{position:absolute;right:10px;bottom:10px;border:0;background:var(--label-bg);color:var(--label-ink);border-radius:8px;padding:4px 9px;font-size:.78rem;font-weight:700}
+.syncpill[hidden]{display:none}
+.syncpill[data-state=off],.syncpill[data-state=key],.syncpill[data-state=err]{color:var(--danger)}
 .north{position:absolute;left:10px;top:10px;background:var(--label-bg);color:var(--label-ink);border-radius:8px;padding:4px 9px;font-size:.78rem;font-weight:800;pointer-events:none}
 
 .bar{display:flex;gap:8px;padding:10px}
@@ -72,7 +75,7 @@ body[data-dim="nether"] .seg button.on{color:var(--danger)}
 .sheet h2{margin:0 0 12px;font-size:1.15rem;font-weight:800}
 .field{margin-bottom:14px}
 .field>label,.flabel{display:block;font-size:.85rem;font-weight:700;color:var(--muted);margin-bottom:6px}
-input[type=text],textarea,select{width:100%;border:2px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:16px}
+input[type=text],input[type=url],input[type=password],textarea,select{width:100%;border:2px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:16px}
 textarea{min-height:70px;resize:vertical}
 .row{display:flex;gap:8px}
 .coord{flex:1;display:flex;align-items:center;gap:4px;background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:2px 4px 2px 10px}
