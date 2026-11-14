@@ -91,7 +91,7 @@ function draw(){
   for(const o of bs){if(seen.has(o))continue;const g=[o];seen.add(o);
     for(let i=0;i<g.length;i++)for(const q of bs)if(!seen.has(q)&&Math.hypot(q.x0-g[i].x0,q.y0-g[i].y0)<40){seen.add(q);g.push(q)}
     if(g.length===1){o.x=o.x0;o.y=o.y0;continue}
-    const cx=g.reduce((s,q)=>s+q.x0,0)/g.length,cy=g.reduce((s,q)=>s+q.y0,0)/g.length,R=Math.max(28,g.length*46/(2*Math.PI));
+    const cx=g.reduce((s,q)=>s+q.x0,0)/g.length,cy=g.reduce((s,q)=>s+q.y0,0)/g.length,R=Math.max(34,g.length*54/(2*Math.PI));
     g.forEach((q,i)=>{const a=-Math.PI/2+i*2*Math.PI/g.length;q.x=cx+R*Math.cos(a);q.y=cy+R*Math.sin(a);q.fan=true})}
   for(const o of bs)if(o.fan){ctx.strokeStyle=link;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(o.x0,o.y0);ctx.lineTo(o.x,o.y);ctx.stroke();
     ctx.fillStyle=o.t.c||'#90a4ae';ctx.beginPath();ctx.arc(o.x0,o.y0,4,0,Math.PI*2);ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle=pinBg;ctx.stroke()}
