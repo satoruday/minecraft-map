@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ぼうけんマップ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-dim="over">
+<header>
+  <h1>ぼうけんマップ</h1>
+  <div class="seg" role="tablist" aria-label="ワールド">
+    <button id="dim-over" class="on" data-dim="over">🌏 オーバーワールド</button>
+    <button id="dim-nether" data-dim="nether">🔥 ネザー</button>
+  </div>
+</header>
+
+<div class="mapwrap">
+  <canvas id="map" aria-label="ちず"></canvas>
+  <div class="north">▲ きた</div>
+  <div class="zoom">
+    <button id="zin" aria-label="おおきく">＋</button>
+    <button id="zout" aria-label="ちいさく">−</button>
+    <button id="zfit" aria-label="ぜんぶ見る">⤢</button>
+  </div>
+  <div class="readout" id="readout"></div>
+</div>
+
+<div class="bar">
+  <button class="btn primary" id="btn-add">＋ ピンをたてる</button>
+  <button class="btn" id="btn-list">📋 いちらん</button>
+  <button class="btn" id="btn-set" aria-label="せってい">⚙</button>
+</div>
+
+<div id="backdrop"></div>
+
+<!-- add / edit -->
+<div class="sheet" id="sheet-form" role="dialog" aria-modal="true">
+  <div class="grip"></div>
+  <h2 id="f-title">ピンをたてる</h2>
+  <div class="field">
+    <span class="flabel">どっちのせかい？</span>
+    <div class="seg" id="f-dim">
+      <button type="button" data-dim="over">🌏 オーバーワールド</button>
+      <button type="button" data-dim="nether">🔥 ネザー</button>
+    </div>
+  </div>
+  <div class="field">
+    <span class="flabel">ざひょう</span>
+    <div class="row">
+      <div class="coord"><b>X</b><input type="text" inputmode="numeric" id="f-x" autocomplete="off"><button type="button" class="pm" data-for="f-x" aria-label="マイナス切りかえ">±</button></div>
+      <div class="coord"><b>Y</b><input type="text" inputmode="numeric" id="f-y" autocomplete="off"><button type="button" class="pm" data-for="f-y" aria-label="マイナス切りかえ">±</button></div>
+      <div class="coord"><b>Z</b><input type="text" inputmode="numeric" id="f-z" autocomplete="off"><button type="button" class="pm" data-for="f-z" aria-label="マイナス切りかえ">±</button></div>
+    </div>
+    <div class="hint">「±」でマイナスにできるよ。Yはなくてもだいじょうぶ</div>
+  </div>
+  <div class="field">
+    <span class="flabel">なにがある？</span>
+    <div id="f-types"></div>
+  </div>
+  <div class="field" id="f-linkwrap" hidden>
+    <label for="f-link">🔗 つながっているゲート</label>
+    <select id="f-link"></select>
+    <div class="hint" id="f-linkhint"></div>
+  </div>
+  <div class="field" id="f-types2"></div>
+  <div class="field" id="f-sizewrap" hidden>
+    <span class="flabel">🎨 バイオームのひろさ</span>
+    <div class="seg" id="f-size">
+      <button type="button" data-size="s">ちいさい</button>
+      <button type="button" data-size="m">ふつう</button>
+      <button type="button" data-size="l">おおきい</button>
+    </div>
+    <div class="hint">ちずにうすい色のまるで出るよ</div>
+  </div>
+  <div class="field">
+    <label for="f-name">なまえ</label>
+    <input type="text" id="f-name" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="f-kana">ふりがな</label>
+    <input type="text" id="f-kana" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="f-memo">メモ</label>
+    <textarea id="f-memo" placeholder="れい：ブレイズがいっぱい"></textarea>
+  </div>
+  <div class="formbar">
+    <div class="err" id="f-err"></div>
+    <div class="actions">
+      <button class="btn" data-close>やめる</button>
+      <button class="btn primary" id="f-save">ほぞんする</button>
+    </div>
+  </div>
+</div>
+
+<!-- detail -->
+<div class="sheet" id="sheet-detail" role="dialog" aria-modal="true">
+  <div class="grip"></div>
+  <div id="d-body"></div>
+  <div class="actions">
+    <button class="btn" id="d-edit">なおす</button>
+    <button class="btn danger" id="d-del">けす</button>
+  </div>
+  <div class="actions"><button class="btn" data-close>とじる</button></div>
+</div>
+
+<!-- list -->
+<div class="sheet" id="sheet-list" role="dialog" aria-modal="true">
+  <div class="grip"></div>
+  <h2>ピンのいちらん</h2>
+  <div class="seg" id="l-dim">
+    <button type="button" data-dim="over">🌏 オーバーワールド</button>
+    <button type="button" data-dim="nether">🔥 ネザー</button>
+  </div>
+  <div class="list" id="l-items"></div>
+</div>
+
+<!-- settings -->
+<div class="sheet" id="sheet-set" role="dialog" aria-modal="true">
+  <div class="grip"></div>
+  <h2>せってい</h2>
+  <span class="flabel">じぶんで種類をふやす</span>
+  <div class="row" style="margin-bottom:8px">
+    <input type="text" id="c-emoji" placeholder="🐉" style="width:64px;flex:none;text-align:center" maxlength="4">
+    <input type="text" id="c-name" placeholder="なまえ（れい：エンド要塞）">
+  </div>
+  <div class="row">
+    <input type="text" id="c-kana" placeholder="ふりがな（れい：エンドようさい）">
+    <button class="btn" id="c-add" style="flex:none">ついか</button>
+  </div>
+  <div class="err" id="c-err"></div>
+  <div id="c-list"></div>
+
+  <section class="block">
+    <span class="flabel">バックアップ</span>
+    <div class="hint" style="margin-bottom:8px">いまはこの端末の中だけにほぞんされるよ。「かきだす」で出た文字をメモアプリなどにとっておけば、べつの端末で「よみこむ」とおなじちずになるよ。</div>
+    <textarea id="b-text" placeholder="ここにバックアップの文字が出るよ"></textarea>
+    <div class="actions">
+      <button class="btn" id="b-export">かきだす</button>
+      <button class="btn" id="b-import">よみこむ</button>
+    </div>
+    <div class="err" id="b-msg"></div>
+  </section>
+  <div class="actions"><button class="btn" data-close>とじる</button></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
