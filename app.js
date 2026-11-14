@@ -46,7 +46,7 @@ const SIZE_LABEL={s:'ちいさい',m:'ふつう',l:'おおきい'};
 const radius=p=>RADII[p.dim][p.size||'m'];
 const rgba=(h,a)=>{let m=String(h||'#90a4ae').replace('#','');if(m.length===3)m=m.split('').map(c=>c+c).join('');const n=parseInt(m,16)||0;return`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};
 
-let dim='over',highlight=null;
+let dim='over',highlight=null,pinPos=new Map();
 const views={over:{cx:0,cz:0,s:.5,fit:false},nether:{cx:0,cz:0,s:1,fit:false}};
 
 /* ---------- map ---------- */
@@ -83,17 +83,36 @@ function draw(){
     ctx.textAlign='center';ctx.textBaseline='middle';
     if(R>=28){const busy=ps.some(q=>!typeOf(q.type).b&&Math.hypot(sx(q.x)-x,sy(q.z)-y)<44);const ly=busy?y-52:y;ctx.font='16px '+EMOJI;ctx.fillStyle=link;ctx.fillText(t.e,x,ly-10);const lab=label(p);ctx.font='800 12px '+FONT;ctx.lineJoin='round';ctx.lineWidth=4;ctx.strokeStyle=lbg;ctx.strokeText(lab,x,ly+10);ctx.fillStyle=link;ctx.fillText(lab,x,ly+10)}
     else{ctx.font='12px '+EMOJI;ctx.fillStyle=link;ctx.fillText(t.e,x,y)}}
-  for(const p of ps){
-    const x=sx(p.x),y=sy(p.z);if(typeOf(p.type).b)continue;if(x<-120||x>W+120||y<-60||y>H+60)continue;
-    const t=typeOf(p.type),hl=highlight===p.id,r=hl?21:17;
+  /* 建物ピン：近すぎて重なるピンは輪になるように広げ、ほんとうの場所へ線をひく。
+     ラベルは したが空いていなければ うえ・みぎ・ひだり・もっと した の順にさがす */
+  const bs=ps.filter(p=>!typeOf(p.type).b).map(p=>({p,t:typeOf(p.type),x0:sx(p.x),y0:sy(p.z),hl:highlight===p.id}))
+    .filter(o=>o.x0>-120&&o.x0<W+120&&o.y0>-60&&o.y0<H+60).sort((a,b)=>(a.p.created||0)-(b.p.created||0));
+  const seen=new Set();
+  for(const o of bs){if(seen.has(o))continue;const g=[o];seen.add(o);
+    for(let i=0;i<g.length;i++)for(const q of bs)if(!seen.has(q)&&Math.hypot(q.x0-g[i].x0,q.y0-g[i].y0)<40){seen.add(q);g.push(q)}
+    if(g.length===1){o.x=o.x0;o.y=o.y0;continue}
+    const cx=g.reduce((s,q)=>s+q.x0,0)/g.length,cy=g.reduce((s,q)=>s+q.y0,0)/g.length,R=Math.max(28,g.length*46/(2*Math.PI));
+    g.forEach((q,i)=>{const a=-Math.PI/2+i*2*Math.PI/g.length;q.x=cx+R*Math.cos(a);q.y=cy+R*Math.sin(a);q.fan=true})}
+  for(const o of bs)if(o.fan){ctx.strokeStyle=link;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(o.x0,o.y0);ctx.lineTo(o.x,o.y);ctx.stroke();
+    ctx.fillStyle=o.t.c||'#90a4ae';ctx.beginPath();ctx.arc(o.x0,o.y0,4,0,Math.PI*2);ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle=pinBg;ctx.stroke()}
+  for(const o of bs){o.r=o.hl?21:17;o.box=[o.x-o.r,o.y-o.r,o.x+o.r,o.y+o.r+3]}
+  const hit=(a,b)=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3],placed=[];
+  ctx.font='800 12px '+FONT;
+  for(const o of [...bs].sort((a,b)=>b.hl-a.hl)){const lab=label(o.p),tw=ctx.measureText(lab).width,lw=tw+14,lh=21,x=o.x,y=o.y,r=o.r;
+    const cands=[[x-lw/2,y+r+6],[x-lw/2,y-r-6-lh],[x+r+6,y-lh/2],[x-r-6-lw,y-lh/2]];for(let k=1;k<=4;k++)cands.push([x-lw/2,y+r+6+k*(lh+3)]);
+    let pick=cands[0];
+    for(const [lx,ly] of cands){const b=[lx-2,ly-2,lx+lw+2,ly+lh+2];if(!bs.some(q=>q!==o&&hit(b,q.box))&&!placed.some(q=>hit(b,q))){pick=[lx,ly];break}}
+    o.lab=lab;o.lb=[pick[0],pick[1],pick[0]+lw,pick[1]+lh];placed.push(o.lb)}
+  pinPos=new Map();
+  for(const o of [...bs].sort((a,b)=>a.hl-b.hl)){const {p,t,x,y,r,hl}=o;pinPos.set(p.id,o);
     if(hl){ctx.fillStyle='rgba(255,215,64,.45)';ctx.beginPath();ctx.arc(x,y,32,0,Math.PI*2);ctx.fill()}
     rr(x-r,y-r+3,r*2,r*2,6);ctx.fillStyle=edge;ctx.fill();
     rr(x-r,y-r,r*2,r*2,6);ctx.fillStyle=pinBg;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=t.c||'#90a4ae';ctx.stroke();
     ctx.font=(hl?22:18)+'px '+EMOJI;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=link;ctx.fillText(t.e,x,y+1);
-    if(p.type==='gate'&&p.link){ctx.beginPath();ctx.arc(x+r,y-r,9,0,Math.PI*2);ctx.fillStyle=pinBg;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=t.c;ctx.stroke();ctx.font='11px '+EMOJI;ctx.fillStyle=link;ctx.fillText('🔗',x+r,y-r+1)}
-    const lab=label(p);ctx.font='800 12px '+FONT;const tw=ctx.measureText(lab).width;
-    rr(x-tw/2-7,y+r+6,tw+14,21,7);ctx.fillStyle=lbg;ctx.fill();ctx.fillStyle=link;ctx.fillText(lab,x,y+r+17);
-  }
+    if(p.type==='gate'&&p.link){ctx.beginPath();ctx.arc(x+r,y-r,9,0,Math.PI*2);ctx.fillStyle=pinBg;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=t.c;ctx.stroke();ctx.font='11px '+EMOJI;ctx.fillStyle=link;ctx.fillText('🔗',x+r,y-r+1)}}
+  ctx.font='800 12px '+FONT;ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const o of [...bs].sort((a,b)=>a.hl-b.hl)){const b=o.lb;rr(b[0],b[1],b[2]-b[0],b[3]-b[1],7);ctx.fillStyle=lbg;ctx.fill();
+    if(o.hl){ctx.lineWidth=2;ctx.strokeStyle=o.t.c||'#90a4ae';ctx.stroke()}ctx.fillStyle=link;ctx.fillText(o.lab,(b[0]+b[2])/2,(b[1]+b[3])/2+1)}
   ctx.lineCap='round';for(const [lw,col] of [[5,lbg],[2,link]]){ctx.lineWidth=lw;ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(W/2-10,H/2);ctx.lineTo(W/2+10,H/2);ctx.moveTo(W/2,H/2-10);ctx.lineTo(W/2,H/2+10);ctx.stroke()}ctx.lineCap='butt';
   $('#readout').textContent=`まんなか X ${Math.round(v.cx)} / Z ${Math.round(v.cz)}`;
 }
@@ -114,7 +133,9 @@ function endPtr(e){if(!pts.has(e.pointerId))return;const single=pts.size===1;pts
   pinchPrev=pts.size===2?pinchInfo():null}
 canvas.addEventListener('pointerup',endPtr);canvas.addEventListener('pointercancel',endPtr);
 canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-e.deltaY*.0015))},{passive:false});
-function tapAt(x,y){const v=views[dim];let best=null,bd=30;for(const p of data.pins){if(p.dim!==dim||typeOf(p.type).b)continue;const d=Math.hypot((p.x-v.cx)*v.s+W/2-x,(p.z-v.cz)*v.s+H/2-y);if(d<bd){bd=d;best=p}}
+function tapAt(x,y){const v=views[dim];let best=null,bd=30;
+  for(const o of pinPos.values()){const d=Math.hypot(o.x-x,o.y-y);if(d<bd){bd=d;best=o.p}}
+  if(!best)for(const o of pinPos.values()){const b=o.lb;if(b&&x>=b[0]&&x<=b[2]&&y>=b[1]&&y<=b[3]){best=o.p;break}}
   if(!best){let br=Infinity;for(const p of data.pins){if(p.dim!==dim||!typeOf(p.type).b)continue;const R=Math.max(radius(p)*v.s,24);const d=Math.hypot((p.x-v.cx)*v.s+W/2-x,(p.z-v.cz)*v.s+H/2-y);if(d<R&&R<br){br=R;best=p}}}
   if(best){highlight=best.id;req();openDetail(best)}else if(highlight){highlight=null;req()}}
 $('#zin').onclick=()=>zoomAt(W/2,H/2,1.5);$('#zout').onclick=()=>zoomAt(W/2,H/2,1/1.5);$('#zfit').onclick=fitAll;
