@@ -46,7 +46,9 @@ const SIZE_LABEL={s:'ちいさい',m:'ふつう',l:'おおきい'};
 const radius=p=>RADII[p.dim][p.size||'m'];
 const rgba=(h,a)=>{let m=String(h||'#90a4ae').replace('#','');if(m.length===3)m=m.split('').map(c=>c+c).join('');const n=parseInt(m,16)||0;return`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};
 
-let dim='over',highlight=null,pinPos=new Map();
+let dim='over',highlight=null,pinPos=new Map(),hereTap=null;
+const HERE_KEY='bouken-map-here';
+let here=null;try{const h=JSON.parse(localStorage.getItem(HERE_KEY)||'null');if(h&&Number.isFinite(h.x)&&Number.isFinite(h.z))here=h}catch(e){}
 const views={over:{cx:0,cz:0,s:.5,fit:false},nether:{cx:0,cz:0,s:1,fit:false}};
 
 /* ---------- map ---------- */
@@ -71,7 +73,7 @@ function draw(){
   ctx.fillStyle=css(P+'-label');ctx.font='700 11px '+FONT;ctx.textBaseline='bottom';ctx.textAlign='left';
   for(let x=Math.floor(x0/step)*step;x<=x1;x+=step){ctx.fillText(String(x),sx(x)+3,H-34)}
   ctx.textBaseline='top';
-  for(let z=Math.floor(z0/step)*step;z<=z1;z+=step){if(sy(z)>40)ctx.fillText(String(z),4,sy(z)+3)}
+  for(let z=Math.floor(z0/step)*step;z<=z1;z+=step){if(sy(z)>84)ctx.fillText(String(z),4,sy(z)+3)}
   const ps=data.pins.filter(p=>p.dim===dim);
   if(!ps.length){ctx.fillStyle=css(P+'-label');ctx.font='800 15px '+FONT;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('まだピンがないよ',W/2,H/2-12);ctx.font='700 12px '+FONT;ctx.fillText('したの「＋ピンをたてる」からはじめよう',W/2,H/2+12)}
   const pinBg=css('--pin-bg'),edge=css('--pin-edge'),lbg=css('--label-bg'),link=css('--label-ink');
@@ -114,6 +116,23 @@ function draw(){
   ctx.font='800 12px '+FONT;ctx.textAlign='center';ctx.textBaseline='middle';
   for(const o of [...bs].sort((a,b)=>a.hl-b.hl)){const b=o.lb;rr(b[0],b[1],b[2]-b[0],b[3]-b[1],7);ctx.fillStyle=lbg;ctx.fill();
     if(o.hl){ctx.lineWidth=2;ctx.strokeStyle=o.t.c||'#90a4ae';ctx.stroke()}ctx.fillStyle=link;ctx.fillText(o.lab,(b[0]+b[2])/2,(b[1]+b[3])/2+1)}
+  /* いまここ：画面の中なら しるし、外なら はしに やじるし */
+  hereTap=null;
+  if(here&&here.dim===dim){const hx=sx(here.x),hy=sy(here.z),col=css('--danger'),m=28;
+    ctx.font='800 13px '+FONT;ctx.textAlign='center';ctx.textBaseline='middle';
+    const tag=(tx,ty,txt)=>{const tw=ctx.measureText(txt).width+16,bx=Math.min(Math.max(tx-tw/2,4),W-tw-4),by=Math.min(Math.max(ty-12,4),H-28);
+      rr(bx,by,tw,24,8);ctx.fillStyle=col;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=pinBg;ctx.stroke();ctx.fillStyle='#fff';ctx.fillText(txt,bx+tw/2,by+13)};
+    if(hx>=m&&hx<=W-m&&hy>=m&&hy<=H-m){
+      ctx.fillStyle=rgba(col,.2);ctx.beginPath();ctx.arc(hx,hy,26,0,Math.PI*2);ctx.fill();
+      ctx.lineWidth=2;ctx.strokeStyle=rgba(col,.7);ctx.beginPath();ctx.arc(hx,hy,26,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(hx,hy,8,0,Math.PI*2);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=pinBg;ctx.stroke();
+      tag(hx,hy-44,'🧍 いまここ')}
+    else{const a=Math.atan2(hy-H/2,hx-W/2),c=Math.cos(a),s=Math.sin(a),t=Math.min((W/2-m)/Math.max(Math.abs(c),1e-6),(H/2-m)/Math.max(Math.abs(s),1e-6));
+      const ex=W/2+c*t,ey=H/2+s*t;
+      ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(-10,-12);ctx.lineTo(-4,0);ctx.lineTo(-10,12);ctx.closePath();
+      ctx.fillStyle=col;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=pinBg;ctx.stroke();ctx.restore();
+      const d=Math.round(Math.hypot(here.x-v.cx,here.z-v.cz));
+      tag(ex-c*58,ey-s*30,`いまここ ${d}ブロック`);hereTap={x:ex,y:ey}}}
   ctx.lineCap='round';for(const [lw,col] of [[5,lbg],[2,link]]){ctx.lineWidth=lw;ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(W/2-10,H/2);ctx.lineTo(W/2+10,H/2);ctx.moveTo(W/2,H/2-10);ctx.lineTo(W/2,H/2+10);ctx.stroke()}ctx.lineCap='butt';
   $('#readout').textContent=`まんなか X ${Math.round(v.cx)} / Z ${Math.round(v.cz)}`;
 }
@@ -135,6 +154,7 @@ function endPtr(e){if(!pts.has(e.pointerId))return;const single=pts.size===1;pts
 canvas.addEventListener('pointerup',endPtr);canvas.addEventListener('pointercancel',endPtr);
 canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-e.deltaY*.0015))},{passive:false});
 function tapAt(x,y){const v=views[dim];let best=null,bd=30;
+  if(hereTap&&Math.hypot(hereTap.x-x,hereTap.y-y)<36){v.cx=here.x;v.cz=here.z;req();return}
   for(const o of pinPos.values()){const d=Math.hypot(o.x-x,o.y-y);if(d<bd){bd=d;best=o.p}}
   if(!best)for(const o of pinPos.values()){const b=o.lb;if(b&&x>=b[0]&&x<=b[2]&&y>=b[1]&&y<=b[3]){best=o.p;break}}
   if(!best){let br=Infinity;for(const p of data.pins){if(p.dim!==dim||!typeOf(p.type).b)continue;const R=Math.max(radius(p)*v.s,24);const d=Math.hypot((p.x-v.cx)*v.s+W/2-x,(p.z-v.cz)*v.s+H/2-y);if(d<R&&R<br){br=R;best=p}}}
@@ -228,6 +248,21 @@ function renderList(){document.querySelectorAll('#l-dim button').forEach(b=>b.cl
 document.querySelectorAll('#l-dim button').forEach(b=>b.onclick=()=>{listDim=b.dataset.dim;renderList()});
 $('#l-items').onclick=e=>{const b=e.target.closest('.item');if(!b)return;const p=data.pins.find(p=>p.id===b.dataset.id);if(!p)return;closeSheets();if(p.dim!==dim)setDim(p.dim);centerOn(p)};
 $('#btn-list').onclick=()=>{listDim=dim;renderList();openSheet('#sheet-list')};
+
+/* ---------- いまここ ---------- */
+let hereDim='over';
+function renderHereDim(){document.querySelectorAll('#h-dim button').forEach(b=>b.classList.toggle('on',b.dataset.dim===hereDim))}
+document.querySelectorAll('#h-dim button').forEach(b=>b.onclick=()=>{hereDim=b.dataset.dim;renderHereDim()});
+$('#btn-here').onclick=()=>{hereDim=dim;const h=here&&here.dim===dim?here:null;
+  $('#h-x').value=h?h.x:'';$('#h-z').value=h?h.z:'';$('#h-err').textContent='';$('#h-clear').hidden=!here;renderHereDim();openSheet('#sheet-here')};
+function goHere(){const x=num($('#h-x').value),z=num($('#h-z').value);
+  if(x==null||z==null){$('#h-err').textContent='XとZを入れてね';return}
+  if(Number.isNaN(x)||Number.isNaN(z)){$('#h-err').textContent='ざひょうは数字で入れてね';return}
+  here={dim:hereDim,x,z};try{localStorage.setItem(HERE_KEY,JSON.stringify(here))}catch(e){}
+  closeSheets();if(hereDim!==dim)setDim(hereDim);const v=views[dim];v.cx=x;v.cz=z;if(v.s<.4)v.s=.8;highlight=null;req()}
+$('#h-go').onclick=goHere;
+['#h-x','#h-z'].forEach(s=>$(s).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();goHere()}}));
+$('#h-clear').onclick=()=>{here=null;try{localStorage.removeItem(HERE_KEY)}catch(e){}closeSheets();req()};
 
 /* ---------- settings ---------- */
 const PALETTE=['#ef5350','#ab47bc','#42a5f5','#26c6da','#66bb6a','#ffca28','#ff7043','#8d6e63'];

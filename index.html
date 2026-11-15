@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body data-dim="over">
 <header>
@@ -21,6 +21,7 @@
 <div class="mapwrap">
   <canvas id="map" aria-label="ちず"></canvas>
   <div class="north">▲ きた</div>
+  <button class="herebtn" id="btn-here">🧭 いまどこ？</button>
   <div class="zoom">
     <button id="zin" aria-label="おおきく">＋</button>
     <button id="zout" aria-label="ちいさく">−</button>
@@ -120,6 +121,33 @@
   <div class="list" id="l-items"></div>
 </div>
 
+<!-- いまここ -->
+<div class="sheet" id="sheet-here" role="dialog" aria-modal="true">
+  <div class="grip"></div>
+  <h2>🧭 いまどこ？</h2>
+  <div class="field">
+    <span class="flabel">どっちのせかい？</span>
+    <div class="seg" id="h-dim">
+      <button type="button" data-dim="over">🌏 オーバーワールド</button>
+      <button type="button" data-dim="nether">🔥 ネザー</button>
+    </div>
+  </div>
+  <div class="field">
+    <span class="flabel">いまの ざひょう</span>
+    <div class="row">
+      <div class="coord"><b>X</b><input type="text" inputmode="numeric" id="h-x" autocomplete="off" enterkeyhint="go"><button type="button" class="pm" data-for="h-x" aria-label="マイナス切りかえ">±</button></div>
+      <div class="coord"><b>Z</b><input type="text" inputmode="numeric" id="h-z" autocomplete="off" enterkeyhint="go"><button type="button" class="pm" data-for="h-z" aria-label="マイナス切りかえ">±</button></div>
+    </div>
+    <div class="hint">ゲームの がめんの ざひょうを 入れてね。ちずの まんなかが そこに うごくよ</div>
+  </div>
+  <div class="err" id="h-err"></div>
+  <div class="actions">
+    <button class="btn" data-close>やめる</button>
+    <button class="btn primary" id="h-go">ちずで見る</button>
+  </div>
+  <div class="actions"><button class="btn" id="h-clear">「いまここ」の しるしを けす</button></div>
+</div>
+
 <!-- settings -->
 <div class="sheet" id="sheet-set" role="dialog" aria-modal="true">
   <div class="grip"></div>
@@ -173,6 +201,6 @@
   <div class="actions"><button class="btn" data-close>とじる</button></div>
 </div>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
